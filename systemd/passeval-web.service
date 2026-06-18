@@ -1,0 +1,28 @@
+[Unit]
+Description=Passeval Web UI (FastAPI + uvicorn)
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=passeval
+Group=passeval
+WorkingDirectory=/home/passeval/passeval
+EnvironmentFile=/home/passeval/passeval/.env
+
+ExecStart=/home/passeval/passeval/venv/bin/uvicorn web.app:app \
+    --host 0.0.0.0 \
+    --port 8000 \
+    --ssl-keyfile web/certs/key.pem \
+    --ssl-certfile web/certs/cert.pem
+
+Restart=on-failure
+RestartSec=10
+
+StandardOutput=append:/home/passeval/passeval/logs/web.log
+StandardError=append:/home/passeval/passeval/logs/web.log
+
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

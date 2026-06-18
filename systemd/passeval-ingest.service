@@ -1,0 +1,38 @@
+[Unit]
+Description=Passeval RockYou2024 heavy stats ingestion
+After=postgresql.service network.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=passeval
+Group=passeval
+WorkingDirectory=/home/passeval/passeval
+EnvironmentFile=/home/passeval/passeval/.env
+
+ExecStart=/home/passeval/passeval/venv/bin/python -m etl.ingest \
+    --dataset-path /var/lib/passeval/datasets/rockyou2024/ \
+    --dataset-name rockyou2024 \
+    --mode heavy \
+    --workers 8
+
+Restart=on-failure
+RestartSec=60
+
+KillMode=control-group
+KillSignal=SIGTERM
+TimeoutStopSec=180
+SendSIGKILL=yes
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=passeval-ingest
+
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
+
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

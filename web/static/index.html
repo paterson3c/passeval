@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Passeval</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0f1117; --surface: #1a1d27; --border: #2a2d3a;
+      --text:    #e2e8f0; --muted:   #8892a4; --accent: #6366f1;
+    }
+    [data-theme="light"] {
+      --bg:      #f1f5f9; --surface: #ffffff; --border: #e2e8f0;
+      --text:    #0f172a; --muted:   #64748b;
+    }
+
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; padding: 2rem 1rem;
+    }
+
+    /* Top bar */
+    .topbar {
+      position: fixed; top: 0; left: 0; right: 0;
+      display: flex; justify-content: flex-end; align-items: center;
+      gap: 0.5rem; padding: 0.6rem 1rem;
+      background: var(--bg); border-bottom: 1px solid var(--border);
+      z-index: 100;
+    }
+    .topbar button {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 6px; padding: 0.3rem 0.6rem;
+      cursor: pointer; font-size: 0.8rem; font-weight: 600;
+      color: var(--text); transition: background 0.15s;
+    }
+    .topbar button:hover, .topbar button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    header { text-align: center; margin: 3.5rem 0 2rem; }
+    header h1 { font-size: 2rem; font-weight: 700; }
+    header h1 span { color: var(--accent); }
+    header p { color: var(--muted); margin-top: 0.4rem; font-size: 0.95rem; }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.5rem;
+      width: 100%; max-width: 640px; margin-bottom: 1.25rem;
+    }
+    .card-title {
+      font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted);
+      margin-bottom: 1rem; display: flex; align-items: center; gap: 0.4rem;
+    }
+
+    /* Info button */
+    .info-btn {
+      background: none; border: 1.5px solid var(--accent); border-radius: 50%;
+      width: 18px; height: 18px; font-size: 0.68rem; font-weight: 700; cursor: pointer;
+      color: var(--accent); display: inline-flex; align-items: center; justify-content: center;
+      line-height: 1; transition: all 0.15s; opacity: 0.85;
+    }
+    .info-btn:hover { background: var(--accent); color: #fff; opacity: 1; }
+
+    /* Modal */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: #0008; z-index: 200;
+      align-items: center; justify-content: center; padding: 1rem;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 1.5rem; max-width: 480px; width: 100%;
+      position: relative;
+    }
+    .modal h3 { font-size: 1rem; margin-bottom: 0.75rem; }
+    .modal p  { font-size: 0.875rem; color: var(--muted); line-height: 1.6; }
+    .modal .ranges { margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+    .modal .range-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; }
+    .modal .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .modal-close {
+      position: absolute; top: 0.75rem; right: 0.75rem;
+      background: none; border: none; font-size: 1.2rem;
+      cursor: pointer; color: var(--muted);
+    }
+    .modal-close:hover { color: var(--text); }
+
+    /* Input */
+    .input-wrap { position: relative; }
+    .input-wrap input {
+      width: 100%; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-size: 1.1rem;
+      padding: 0.75rem 3rem 0.75rem 1rem; outline: none; transition: border-color 0.2s;
+    }
+    .input-wrap input:focus { border-color: var(--accent); }
+    .toggle-pw {
+      position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; color: var(--muted); font-size: 1.1rem;
+    }
+    .toggle-pw:hover { color: var(--text); }
+
+    .check-row {
+      display: flex; align-items: flex-start; gap: 0.6rem;
+      margin-top: 0.85rem; color: var(--muted); font-size: 0.875rem; line-height: 1.4;
+    }
+    .check-row input[type=checkbox] { accent-color: var(--accent); width: 1rem; height: 1rem; margin-top: 2px; flex-shrink: 0; }
+
+    .btn {
+      width: 100%; margin-top: 1rem; background: var(--accent); color: #fff;
+      border: none; border-radius: 8px; padding: 0.75rem;
+      font-size: 1rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Score */
+    .score-badge { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    .score-meter { display: flex; gap: 4px; flex: 1; }
+    .score-meter span { flex: 1; height: 6px; border-radius: 3px; background: var(--border); transition: background 0.4s; }
+    .score-label-big { font-size: 1.4rem; font-weight: 700; }
+    .score-bits { color: var(--muted); font-size: 0.85rem; margin-top: 0.25rem; }
+
+    /* Risk */
+    .risk-banner { border-radius: 10px; padding: 1rem 1.25rem; border-left: 4px solid; }
+    .risk-banner .risk-title { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+    .risk-banner .risk-text  { font-size: 0.9rem; margin-top: 0.3rem; }
+    .risk-CRÍTICO, .risk-CRITICAL, .risk-CRITIQUE   { background:#ef44441a; border-color:#ef4444; }
+    .risk-ALTO, .risk-HIGH, .risk-ÉLEVÉ             { background:#f973161a; border-color:#f97316; }
+    .risk-MEDIO, .risk-MEDIUM, .risk-MOYEN          { background:#eab3081a; border-color:#eab308; }
+    .risk-BAJO, .risk-LOW, .risk-FAIBLE             { background:#22c55e1a; border-color:#22c55e; }
+    .risk-MUY\ BAJO, .risk-VERY\ LOW, .risk-TRÈS\ FAIBLE { background:#06b6d41a; border-color:#06b6d4; }
+
+    /* Stats grid */
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .stat-box { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; }
+    .stat-box .label { font-size: 0.75rem; color: var(--muted); margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.3rem; }
+    .stat-box .value { font-size: 1rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    /* Decomp */
+    .decomp-list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .decomp-item {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: 0.6rem 0.9rem;
+    }
+    .decomp-left { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+    .decomp-tag {
+      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; padding: 0.2rem 0.5rem;
+      border-radius: 4px; background: var(--border); color: var(--muted);
+    }
+    .tag-leet       { background:#6366f11a; color:#818cf8; }
+    .tag-dictionary { background:#f973161a; color:#fb923c; }
+    .tag-spanish    { background:#f973161a; color:#fb923c; }
+    .tag-date       { background:#22c55e1a; color:#4ade80; }
+    .tag-keyboard   { background:#eab3081a; color:#facc15; }
+    .tag-repetition { background:#eab3081a; color:#facc15; }
+    .tag-sequence   { background:#eab3081a; color:#facc15; }
+    .tag-bruteforce { background:#8892a41a; color:#8892a4; }
+    .decomp-token { font-family: monospace; font-size: 0.9rem; color: var(--text); }
+    .decomp-dots  { font-family: monospace; letter-spacing: 2px; color: var(--muted); }
+    .decomp-guesses { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+
+    /* Cracking */
+    .crack-list { display: flex; flex-direction: column; gap: 0.4rem; }
+    .crack-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.5rem 0.75rem; background: var(--bg);
+      border: 1px solid var(--border); border-radius: 8px; font-size: 0.875rem;
+    }
+    .crack-label { color: var(--muted); }
+    .crack-time  { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    /* HIBP */
+    .hibp-result {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--border);
+    }
+    .hibp-icon { font-size: 1.4rem; }
+    .hibp-found     { background:#ef44441a; border-color:#ef4444; }
+    .hibp-not_found { background:#22c55e1a; border-color:#22c55e; }
+    .hibp-skipped   { background: var(--bg); }
+    .hibp-error     { background:#eab3081a; border-color:#eab308; }
+
+    .hidden { display: none !important; }
+    #error-msg { color:#f87171; font-size:0.875rem; margin-top:0.5rem; text-align:center; }
+    #spinner { display:flex; justify-content:center; align-items:center; gap:0.5rem; color:var(--muted); font-size:0.9rem; margin-top:1rem; }
+    .spin { width:18px; height:18px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    footer { color:var(--muted); font-size:0.78rem; margin-top:1rem; text-align:center; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <button id="lang-es" class="active" onclick="setLang('es')">ES</button>
+  <button id="lang-en" onclick="setLang('en')">EN</button>
+  <button id="lang-fr" onclick="setLang('fr')">FR</button>
+  <button id="theme-btn" onclick="toggleTheme()" title="Tema">🌙</button>
+</div>
+
+<header>
+  <h1>Pass<span>eval</span></h1>
+  <p data-i18n="subtitle"></p>
+</header>
+
+<!-- Input -->
+<div class="card">
+  <div class="card-title" data-i18n="card_input"></div>
+  <div class="input-wrap">
+    <input type="password" id="pwd" data-i18n-placeholder="pwd_placeholder" autocomplete="off" maxlength="128">
+    <button class="toggle-pw" id="toggle-pw" title="Mostrar/ocultar">
+      <svg id="icon-eye-show" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      <svg id="icon-eye-hide" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+    </button>
+  </div>
+
+  <div class="check-row" style="margin-top:1rem">
+    <input type="checkbox" id="hibp-check">
+    <label for="hibp-check" data-i18n="hibp_label"></label>
+  </div>
+
+  <div class="check-row">
+    <input type="checkbox" id="stats-check">
+    <label for="stats-check" data-i18n="stats_label"></label>
+  </div>
+
+  <button class="btn" id="eval-btn" data-i18n="btn_evaluate"></button>
+  <p id="error-msg" class="hidden"></p>
+  <div id="spinner" class="hidden"><div class="spin"></div> <span data-i18n="evaluating"></span></div>
+</div>
+
+<!-- Riesgo -->
+<div class="card hidden" id="card-risk">
+  <div class="card-title" data-i18n="card_risk"></div>
+  <div id="risk-banner" class="risk-banner"></div>
+</div>
+
+<!-- Score -->
+<div class="card hidden" id="card-score">
+  <div class="card-title">
+    <span data-i18n="card_strength"></span>
+    <button class="info-btn" onclick="showInfo('score')">i</button>
+  </div>
+  <div class="score-badge">
+    <div>
+      <div class="score-label-big" id="score-label"></div>
+      <div class="score-bits" id="score-bits"></div>
+    </div>
+    <div class="score-meter" id="score-meter">
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
+  </div>
+</div>
+
+<!-- Métricas -->
+<div class="card hidden" id="card-metrics">
+  <div class="card-title" data-i18n="card_metrics"></div>
+  <div class="stats-grid">
+    <div class="stat-box">
+      <div class="label"><span data-i18n="m_length"></span></div>
+      <div class="value" id="m-length"></div>
+    </div>
+    <div class="stat-box">
+      <div class="label"><span data-i18n="m_comp"></span></div>
+      <div class="value" id="m-comp"></div>
+    </div>
+    <div class="stat-box">
+      <div class="label">
+        <span data-i18n="m_shannon"></span>
+        <button class="info-btn" onclick="showInfo('shannon')">i</button>
+      </div>
+      <div class="value" id="m-shannon"></div>
+    </div>
+    <div class="stat-box">
+      <div class="label">
+        <span data-i18n="m_charset"></span>
+        <button class="info-btn" onclick="showInfo('charset')">i</button>
+      </div>
+      <div class="value" id="m-charset"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Descomposición -->
+<div class="card hidden" id="card-decomp">
+  <div class="card-title">
+    <span data-i18n="card_decomp"></span>
+    <button class="info-btn" onclick="showInfo('decomp')">i</button>
+  </div>
+  <div class="decomp-list" id="decomp-list"></div>
+</div>
+
+<!-- HIBP -->
+<div class="card hidden" id="card-hibp">
+  <div class="card-title">
+    <span data-i18n="card_hibp"></span>
+    <button class="info-btn" onclick="showInfo('hibp')">i</button>
+  </div>
+  <div class="hibp-result" id="hibp-result"></div>
+</div>
+
+<!-- Cracking -->
+<div class="card hidden" id="card-crack">
+  <div class="card-title">
+    <span data-i18n="card_crack"></span>
+    <button class="info-btn" onclick="showInfo('crack')">i</button>
+  </div>
+  <div class="crack-list" id="crack-list"></div>
+</div>
+
+<footer data-i18n="footer"></footer>
+
+<!-- Modal info -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeInfo()">✕</button>
+    <h3 id="modal-title"></h3>
+    <p id="modal-body"></p>
+    <div class="ranges" id="modal-ranges"></div>
+  </div>
+</div>
+
+<script>
+// ─── i18n ────────────────────────────────────────────────────────────────────
+const T = {
+  es: {
+    subtitle:        'Evaluación local de fortaleza de contraseñas · TFG',
+    card_input:      'Contraseña',
+    pwd_placeholder: 'Introduce tu contraseña…',
+    hibp_label:      'Consultar <strong>Have I Been Pwned</strong> — ¿ha aparecido en alguna filtración? <span style="color:var(--muted)">(nunca enviamos tu contraseña, solo los 5 primeros caracteres de su versión cifrada)</span>',
+    stats_label:     'Contribuir estadísticas anónimas al estudio <span style="color:var(--muted)">(solo longitud, tipo de caracteres y entropía — nunca la contraseña ni ningún patrón detectado)</span>',
+    btn_evaluate:    'Evaluar',
+    evaluating:      'Evaluando…',
+    card_risk:       'Riesgo',
+    card_strength:   'Fortaleza',
+    card_metrics:    'Métricas descriptivas',
+    card_decomp:     'Descomposición detectada',
+    card_hibp:       'Filtraciones públicas (HIBP)',
+    card_crack:      'Tiempo estimado de cracking',
+    footer:          'Ninguna contraseña se almacena ni se loguea.',
+    err_server:      'No se puede conectar con el servidor. ¿Está arrancado uvicorn?',
+    m_length:        'Longitud',
+    m_comp:          'Composición',
+    m_shannon:       'Entropía Shannon',
+    m_charset:       'Entropía charset',
+    guesses:         'intentos',
+    attempts:        'intentos estimados',
+    crack: {
+      online_throttled:  'Online con rate limit (10/s)',
+      cpu_sha1:          'CPU doméstica SHA-1 (10⁷/s)',
+      gpu_consumer_sha1: 'GPU consumer SHA-1 (10¹⁰/s)',
+      gpu_rig_sha1:      'Rig 8×GPU SHA-1 (10¹¹/s)',
+      argon2id_modern:   'Argon2id moderno (10/s)',
+    },
+    hibp: {
+      found:     c => `Encontrada en filtraciones (${c.toLocaleString('es-ES')} veces)`,
+      not_found: () => 'No encontrada en filtraciones conocidas',
+      skipped:   () => 'Consulta no autorizada en esta sesión',
+      error:     () => 'Error de red al consultar HIBP',
+    },
+    score_labels: ['Trivial','Muy débil','Débil','Fuerte','Muy fuerte'],
+    info: {
+      score: {
+        title: 'Fortaleza (score 0–4)',
+        body:  'Estimación de cuántos intentos necesita un atacante para adivinar la contraseña, según los patrones detectados. No es lo mismo que la entropía teórica: una contraseña larga pero predecible puede tener un score bajo.',
+        ranges: [
+          { color:'#ef4444', label:'0 — Trivial: < 10 bits (< 10³ intentos). Se adivina en segundos.' },
+          { color:'#f97316', label:'1 — Muy débil: 10–20 bits (10³–10⁶ intentos). Ataques online triviales.' },
+          { color:'#eab308', label:'2 — Débil: 20–35 bits (10⁶–3·10¹⁰ intentos). Vulnerable a GPU offline.' },
+          { color:'#22c55e', label:'3 — Fuerte: 35–60 bits (3·10¹⁰–10¹⁸ intentos). Resistente en la mayoría de contextos.' },
+          { color:'#06b6d4', label:'4 — Muy fuerte: ≥ 60 bits (≥ 10¹⁸ intentos). Muy difícil de crackear.' },
+        ],
+      },
+      shannon: {
+        title: 'Entropía Shannon',
+        body:  'Mide la diversidad de caracteres en la contraseña (bits por carácter). Una contraseña con muchos caracteres repetidos tiene entropía baja aunque sea larga. No mide directamente la dificultad de cracking.',
+        ranges: [
+          { color:'#ef4444', label:'< 2 bits/char — Muy poca variedad (ej. "aaaa1111")' },
+          { color:'#eab308', label:'2–3 bits/char — Variedad moderada' },
+          { color:'#22c55e', label:'3–4 bits/char — Buena variedad de caracteres' },
+          { color:'#06b6d4', label:'> 4 bits/char — Muy alta diversidad (cercano al azar)' },
+        ],
+      },
+      charset: {
+        title: 'Entropía charset (límite superior)',
+        body:  'Es el número de bits que tendría la contraseña si fuera completamente aleatoria dentro de su conjunto de caracteres. Es un límite superior teórico: una contraseña real predecible tiene muchos menos bits efectivos.',
+        ranges: [
+          { color:'#ef4444', label:'< 28 bits — Solo dígitos o letras cortas: muy débil' },
+          { color:'#eab308', label:'28–40 bits — Aceptable solo con hashing fuerte (Argon2id)' },
+          { color:'#22c55e', label:'40–60 bits — Bueno para la mayoría de usos' },
+          { color:'#06b6d4', label:'> 60 bits — Excelente resistencia teórica' },
+        ],
+      },
+      decomp: {
+        title: 'Descomposición detectada',
+        body:  'El modelo divide la contraseña en segmentos reconocibles: palabras de diccionario, fechas, sustituciones leet (3→e, 4→a…), patrones de teclado, repeticiones y fuerza bruta. El coste total es el producto de los costes de cada segmento. Cuantos más segmentos predecibles, más fácil de crackear.',
+        ranges: [
+          { color:'#fb923c', label:'dictionary / leet: palabra del diccionario (con o sin sustitución)' },
+          { color:'#4ade80', label:'date: fecha reconocible (año, cumpleaños…)' },
+          { color:'#facc15', label:'keyboard / sequence / repetition: patrón de teclado o secuencia' },
+          { color:'#8892a4', label:'bruteforce: segmento sin patrón reconocible' },
+        ],
+      },
+      hibp: {
+        title: 'Have I Been Pwned',
+        body:  'Base de datos pública con miles de millones de contraseñas filtradas en brechas de seguridad reales. Si tu contraseña aparece aquí, los atacantes ya la tienen en sus listas y la probarán primero. La consulta usa k-anonymity: calculamos SHA-1 de la contraseña y solo enviamos los 5 primeros caracteres del hash. El servidor devuelve todos los hashes que empiezan así y comprobamos localmente si hay coincidencia.',
+        ranges: [
+          { color:'#ef4444', label:'Encontrada: sustituye esta contraseña inmediatamente.' },
+          { color:'#22c55e', label:'No encontrada: no aparece en filtraciones conocidas.' },
+        ],
+      },
+      crack: {
+        title: 'Tiempos de cracking',
+        body:  'Estimación del tiempo medio para adivinar la contraseña (T = G / 2v, donde G son los intentos estimados y v la velocidad del atacante). Se muestran 5 escenarios: desde un atacante online con rate limit hasta hardware especializado con función de hash lenta.',
+        ranges: [
+          { color:'#ef4444', label:'< 1 segundo / minuto — Extremadamente vulnerable' },
+          { color:'#eab308', label:'Horas / días — Vulnerable ante atacantes con recursos' },
+          { color:'#22c55e', label:'Años — Seguro para uso general' },
+          { color:'#06b6d4', label:'> 1.000 años — Prácticamente infranqueable' },
+        ],
+      },
+    },
+  },
+  en: {
+    subtitle:        'Local password strength evaluation · Final Thesis',
+    card_input:      'Password',
+    pwd_placeholder: 'Enter your password…',
+    hibp_label:      'Check <strong>Have I Been Pwned</strong> — has it appeared in any breach? <span style="color:var(--muted)">(we never send your password, only the first 5 characters of its hash)</span>',
+    stats_label:     'Contribute anonymous statistics to the study <span style="color:var(--muted)">(only length, character type and entropy — never the password or any detected pattern)</span>',
+    btn_evaluate:    'Evaluate',
+    evaluating:      'Evaluating…',
+    card_risk:       'Risk',
+    card_strength:   'Strength',
+    card_metrics:    'Descriptive metrics',
+    card_decomp:     'Detected decomposition',
+    card_hibp:       'Public breaches (HIBP)',
+    card_crack:      'Estimated cracking time',
+    footer:          'No password is stored or logged.',
+    err_server:      'Cannot reach the server. Is uvicorn running?',
+    m_length:        'Length',
+    m_comp:          'Composition',
+    m_shannon:       'Shannon entropy',
+    m_charset:       'Charset entropy',
+    guesses:         'guesses',
+    attempts:        'estimated guesses',
+    crack: {
+      online_throttled:  'Online throttled (10/s)',
+      cpu_sha1:          'Home CPU SHA-1 (10⁷/s)',
+      gpu_consumer_sha1: 'Consumer GPU SHA-1 (10¹⁰/s)',
+      gpu_rig_sha1:      '8×GPU rig SHA-1 (10¹¹/s)',
+      argon2id_modern:   'Modern Argon2id (10/s)',
+    },
+    hibp: {
+      found:     c => `Found in breaches (${c.toLocaleString('en-US')} times)`,
+      not_found: () => 'Not found in known breaches',
+      skipped:   () => 'Check not authorised this session',
+      error:     () => 'Network error querying HIBP',
+    },
+    score_labels: ['Trivial','Very weak','Weak','Strong','Very strong'],
+    info: {
+      score: {
+        title: 'Strength score (0–4)',
+        body:  'Estimates how many guesses an attacker needs based on detected patterns. Not the same as theoretical entropy: a long but predictable password can score low.',
+        ranges: [
+          { color:'#ef4444', label:'0 — Trivial: < 10 bits (< 10³ guesses). Cracked in seconds.' },
+          { color:'#f97316', label:'1 — Very weak: 10–20 bits (10³–10⁶ guesses). Trivial online attacks.' },
+          { color:'#eab308', label:'2 — Weak: 20–35 bits (10⁶–3·10¹⁰ guesses). Vulnerable to offline GPU.' },
+          { color:'#22c55e', label:'3 — Strong: 35–60 bits (3·10¹⁰–10¹⁸ guesses). Safe in most contexts.' },
+          { color:'#06b6d4', label:'4 — Very strong: ≥ 60 bits (≥ 10¹⁸ guesses). Very hard to crack.' },
+        ],
+      },
+      shannon: {
+        title: 'Shannon entropy',
+        body:  'Measures character diversity (bits per character). A password with many repeated characters has low entropy even if long. Does not directly measure cracking difficulty.',
+        ranges: [
+          { color:'#ef4444', label:'< 2 bits/char — Very low variety (e.g. "aaaa1111")' },
+          { color:'#eab308', label:'2–3 bits/char — Moderate variety' },
+          { color:'#22c55e', label:'3–4 bits/char — Good character variety' },
+          { color:'#06b6d4', label:'> 4 bits/char — High diversity (near random)' },
+        ],
+      },
+      charset: {
+        title: 'Charset entropy (upper bound)',
+        body:  'Bits the password would have if fully random within its character set. A theoretical upper bound — a predictable password has far fewer effective bits.',
+        ranges: [
+          { color:'#ef4444', label:'< 28 bits — Digits or short letters only: very weak' },
+          { color:'#eab308', label:'28–40 bits — Acceptable only with strong hashing (Argon2id)' },
+          { color:'#22c55e', label:'40–60 bits — Good for most uses' },
+          { color:'#06b6d4', label:'> 60 bits — Excellent theoretical resistance' },
+        ],
+      },
+      decomp: {
+        title: 'Detected decomposition',
+        body:  'The model splits the password into recognisable segments: dictionary words, dates, leet substitutions (3→e, 4→a…), keyboard patterns, repetitions and bruteforce. Total cost is the product of each segment cost. More predictable segments = easier to crack.',
+        ranges: [
+          { color:'#fb923c', label:'dictionary / leet: dictionary word (with or without substitution)' },
+          { color:'#4ade80', label:'date: recognisable date (year, birthday…)' },
+          { color:'#facc15', label:'keyboard / sequence / repetition: keyboard or sequence pattern' },
+          { color:'#8892a4', label:'bruteforce: segment with no recognisable pattern' },
+        ],
+      },
+      hibp: {
+        title: 'Have I Been Pwned',
+        body:  'Public database with billions of passwords leaked in real security breaches. If your password is here, attackers already have it in their lists. The query uses k-anonymity: we compute SHA-1 and only send the first 5 characters of the hash. The server returns all matching hashes and we check locally.',
+        ranges: [
+          { color:'#ef4444', label:'Found: replace this password immediately.' },
+          { color:'#22c55e', label:'Not found: not in any known breach.' },
+        ],
+      },
+      crack: {
+        title: 'Cracking times',
+        body:  'Estimated average time to guess the password (T = G / 2v, where G is estimated guesses and v is attacker speed). Five scenarios from throttled online attacker to specialised hardware with slow hashing.',
+        ranges: [
+          { color:'#ef4444', label:'< seconds / minutes — Extremely vulnerable' },
+          { color:'#eab308', label:'Hours / days — Vulnerable to resourceful attackers' },
+          { color:'#22c55e', label:'Years — Safe for general use' },
+          { color:'#06b6d4', label:'> 1,000 years — Practically unbreakable' },
+        ],
+      },
+    },
+  },
+  fr: {
+    subtitle:        'Évaluation locale de la robustesse des mots de passe · TFE',
+    card_input:      'Mot de passe',
+    pwd_placeholder: 'Entrez votre mot de passe…',
+    hibp_label:      'Consulter <strong>Have I Been Pwned</strong> — est-il apparu dans une fuite ? <span style="color:var(--muted)">(nous n\'envoyons jamais le mot de passe, seulement les 5 premiers caractères de son empreinte)</span>',
+    stats_label:     'Contribuer des statistiques anonymes à l\'étude <span style="color:var(--muted)">(uniquement longueur, type de caractères et entropie — jamais le mot de passe ni aucun motif détecté)</span>',
+    btn_evaluate:    'Évaluer',
+    evaluating:      'Évaluation…',
+    card_risk:       'Risque',
+    card_strength:   'Robustesse',
+    card_metrics:    'Métriques descriptives',
+    card_decomp:     'Décomposition détectée',
+    card_hibp:       'Fuites publiques (HIBP)',
+    card_crack:      'Temps de craquage estimé',
+    footer:          'Aucun mot de passe n\'est stocké ni journalisé.',
+    err_server:      'Impossible de joindre le serveur. Uvicorn est-il lancé ?',
+    m_length:        'Longueur',
+    m_comp:          'Composition',
+    m_shannon:       'Entropie Shannon',
+    m_charset:       'Entropie charset',
+    guesses:         'essais',
+    attempts:        'essais estimés',
+    crack: {
+      online_throttled:  'En ligne limité (10/s)',
+      cpu_sha1:          'CPU domestique SHA-1 (10⁷/s)',
+      gpu_consumer_sha1: 'GPU grand public SHA-1 (10¹⁰/s)',
+      gpu_rig_sha1:      'Station 8×GPU SHA-1 (10¹¹/s)',
+      argon2id_modern:   'Argon2id moderne (10/s)',
+    },
+    hibp: {
+      found:     c => `Trouvé dans des fuites (${c.toLocaleString('fr-FR')} fois)`,
+      not_found: () => 'Non trouvé dans les fuites connues',
+      skipped:   () => 'Consultation non autorisée cette session',
+      error:     () => 'Erreur réseau lors de la consultation HIBP',
+    },
+    score_labels: ['Trivial','Très faible','Faible','Fort','Très fort'],
+    info: {
+      score: {
+        title: 'Score de robustesse (0–4)',
+        body:  'Estime le nombre de tentatives nécessaires à un attaquant selon les motifs détectés. Différent de l\'entropie théorique : un mot de passe long mais prévisible peut avoir un score faible.',
+        ranges: [
+          { color:'#ef4444', label:'0 — Trivial : < 10 bits (< 10³ essais). Craqué en secondes.' },
+          { color:'#f97316', label:'1 — Très faible : 10–20 bits (10³–10⁶ essais). Attaques en ligne triviales.' },
+          { color:'#eab308', label:'2 — Faible : 20–35 bits (10⁶–3·10¹⁰ essais). Vulnérable aux GPU hors ligne.' },
+          { color:'#22c55e', label:'3 — Fort : 35–60 bits (3·10¹⁰–10¹⁸ essais). Sûr dans la plupart des contextes.' },
+          { color:'#06b6d4', label:'4 — Très fort : ≥ 60 bits (≥ 10¹⁸ essais). Très difficile à craquer.' },
+        ],
+      },
+      shannon: {
+        title: 'Entropie de Shannon',
+        body:  'Mesure la diversité des caractères (bits par caractère). Un mot de passe avec beaucoup de répétitions a une entropie faible même s\'il est long.',
+        ranges: [
+          { color:'#ef4444', label:'< 2 bits/car — Très peu de variété' },
+          { color:'#eab308', label:'2–3 bits/car — Variété modérée' },
+          { color:'#22c55e', label:'3–4 bits/car — Bonne variété' },
+          { color:'#06b6d4', label:'> 4 bits/car — Haute diversité (proche du hasard)' },
+        ],
+      },
+      charset: {
+        title: 'Entropie charset (borne supérieure)',
+        body:  'Bits qu\'aurait le mot de passe s\'il était totalement aléatoire dans son jeu de caractères. Borne théorique supérieure — un mot de passe prévisible a beaucoup moins de bits effectifs.',
+        ranges: [
+          { color:'#ef4444', label:'< 28 bits — Chiffres ou lettres courtes seulement : très faible' },
+          { color:'#eab308', label:'28–40 bits — Acceptable uniquement avec un hachage fort' },
+          { color:'#22c55e', label:'40–60 bits — Bon pour la plupart des usages' },
+          { color:'#06b6d4', label:'> 60 bits — Excellente résistance théorique' },
+        ],
+      },
+      decomp: {
+        title: 'Décomposition détectée',
+        body:  'Le modèle divise le mot de passe en segments reconnaissables : mots du dictionnaire, dates, substitutions leet (3→e, 4→a…), motifs de clavier, répétitions et force brute.',
+        ranges: [
+          { color:'#fb923c', label:'dictionary / leet : mot du dictionnaire (avec ou sans substitution)' },
+          { color:'#4ade80', label:'date : date reconnaissable (année, anniversaire…)' },
+          { color:'#facc15', label:'keyboard / sequence / repetition : motif de clavier ou séquence' },
+          { color:'#8892a4', label:'bruteforce : segment sans motif reconnaissable' },
+        ],
+      },
+      hibp: {
+        title: 'Have I Been Pwned',
+        body:  'Base de données publique avec des milliards de mots de passe issus de vraies fuites. La consultation utilise la k-anonymité : nous calculons le SHA-1 et envoyons seulement les 5 premiers caractères du hash.',
+        ranges: [
+          { color:'#ef4444', label:'Trouvé : remplacez ce mot de passe immédiatement.' },
+          { color:'#22c55e', label:'Non trouvé : n\'apparaît dans aucune fuite connue.' },
+        ],
+      },
+      crack: {
+        title: 'Temps de craquage',
+        body:  'Temps moyen estimé pour deviner le mot de passe (T = G / 2v). Cinq scénarios de l\'attaquant en ligne limité au matériel spécialisé.',
+        ranges: [
+          { color:'#ef4444', label:'< secondes / minutes — Extrêmement vulnérable' },
+          { color:'#eab308', label:'Heures / jours — Vulnérable aux attaquants disposant de ressources' },
+          { color:'#22c55e', label:'Années — Sûr pour un usage général' },
+          { color:'#06b6d4', label:'> 1 000 ans — Pratiquement inviolable' },
+        ],
+      },
+    },
+  },
+};
+
+let lang = 'es';
+
+function setLang(l) {
+  lang = l;
+  ['es','en','fr'].forEach(x => document.getElementById('lang-'+x).classList.toggle('active', x===l));
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (T[l][key] !== undefined) el.innerHTML = T[l][key];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    if (T[l][key]) el.placeholder = T[l][key];
+  });
+}
+
+function toggleTheme() {
+  const html = document.documentElement;
+  const isLight = html.getAttribute('data-theme') === 'light';
+  html.setAttribute('data-theme', isLight ? '' : 'light');
+  document.getElementById('theme-btn').textContent = isLight ? '🌙' : '☀️';
+}
+
+// ─── Info modal ───────────────────────────────────────────────────────────────
+function showInfo(key) {
+  const info = T[lang].info[key];
+  document.getElementById('modal-title').textContent = info.title;
+  document.getElementById('modal-body').textContent  = info.body;
+  const rangesEl = document.getElementById('modal-ranges');
+  rangesEl.innerHTML = '';
+  (info.ranges || []).forEach(r => {
+    rangesEl.innerHTML += `<div class="range-row"><div class="dot" style="background:${r.color}"></div><span>${r.label}</span></div>`;
+  });
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeInfo() { document.getElementById('modal-overlay').classList.remove('open'); }
+function closeModal(e) { if (e.target === document.getElementById('modal-overlay')) closeInfo(); }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const SCORE_COLORS = ['#ef4444','#f97316','#eab308','#22c55e','#06b6d4'];
+
+function fmtGuesses(n) {
+  if (n < 1e6) return n.toLocaleString();
+  const exp = Math.floor(Math.log10(n));
+  const base = (n / Math.pow(10, exp)).toFixed(1);
+  return `${base} × 10<sup>${exp}</sup>`;
+}
+
+// ─── UI ───────────────────────────────────────────────────────────────────────
+document.getElementById('toggle-pw').addEventListener('click', () => {
+  const inp = document.getElementById('pwd');
+  const showing = inp.type === 'password';
+  inp.type = showing ? 'text' : 'password';
+  document.getElementById('icon-eye-show').style.display = showing ? 'none' : '';
+  document.getElementById('icon-eye-hide').style.display = showing ? '' : 'none';
+});
+document.getElementById('pwd').addEventListener('keydown', e => { if (e.key === 'Enter') evaluate(); });
+document.getElementById('eval-btn').addEventListener('click', evaluate);
+
+function show(id) { document.getElementById(id).classList.remove('hidden'); }
+function hide(id) { document.getElementById(id).classList.add('hidden'); }
+function hideAll() {
+  ['card-risk','card-score','card-metrics','card-decomp','card-hibp','card-crack'].forEach(hide);
+}
+
+async function evaluate() {
+  const pwd  = document.getElementById('pwd').value;
+  const hibp = document.getElementById('hibp-check').checked;
+  const stats = document.getElementById('stats-check').checked;
+  const errEl = document.getElementById('error-msg');
+  errEl.classList.add('hidden');
+
+  if (!pwd) { errEl.textContent = T[lang].pwd_placeholder; errEl.classList.remove('hidden'); return; }
+
+  hideAll();
+  show('spinner');
+  document.getElementById('eval-btn').disabled = true;
+
+  try {
+    const res = await fetch('/api/evaluate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pwd, hibp, stats_consent: stats }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Error ${res.status}`);
+    }
+    const d = await res.json();
+    document.getElementById('pwd').value = '';
+    render(d);
+  } catch(e) {
+    const isNetworkErr = e instanceof TypeError && e.message === 'Failed to fetch';
+    errEl.textContent = isNetworkErr ? T[lang].err_server : (e.message || 'Error');
+    errEl.classList.remove('hidden');
+  } finally {
+    hide('spinner');
+    document.getElementById('eval-btn').disabled = false;
+  }
+}
+
+function render(d) {
+  const t = T[lang];
+
+  // Riesgo
+  const rb = document.getElementById('risk-banner');
+  rb.className = `risk-banner risk-${d.risk_label}`;
+  rb.innerHTML = `<div class="risk-title">${d.risk_label}</div><div class="risk-text">${d.risk_explanation}</div>`;
+  show('card-risk');
+
+  // Score
+  const color = SCORE_COLORS[d.score];
+  document.getElementById('score-label').textContent = t.score_labels[d.score];
+  document.getElementById('score-label').style.color = color;
+  document.getElementById('score-bits').innerHTML =
+    `${d.guess_bits.toFixed(1)} bits · ${fmtGuesses(d.guesses)} ${t.attempts}`;
+  document.querySelectorAll('#score-meter span').forEach((b,i) => {
+    b.style.background = i <= d.score ? color : 'var(--border)';
+  });
+  show('card-score');
+
+  // Métricas
+  document.getElementById('m-length').textContent = `${d.length} ${t.m_length.toLowerCase()}`;
+  document.getElementById('m-comp').textContent = d.composition.join(' + ') || '—';
+  document.getElementById('m-shannon').innerHTML =
+    `${d.shannon_per_char.toFixed(2)} bits/char (${d.shannon_total.toFixed(1)} total)`;
+  document.getElementById('m-charset').innerHTML =
+    `${d.charset_bits.toFixed(1)} bits`;
+  show('card-metrics');
+
+  // Descomposición
+  const dl = document.getElementById('decomp-list');
+  dl.innerHTML = '';
+  d.decomposition.forEach(seg => {
+    const tokenPart = seg.token !== null
+      ? `<span class="decomp-token">"${seg.token}"</span>`
+      : `<span class="decomp-dots">${'●'.repeat(Math.min(seg.length, 20))}${seg.length > 20 ? '…' : ''}</span>`;
+    dl.innerHTML += `
+      <div class="decomp-item">
+        <div class="decomp-left">
+          <span class="decomp-tag tag-${seg.type}">${seg.type}</span>
+          ${tokenPart}
+        </div>
+        <span class="decomp-guesses">${fmtGuesses(seg.guesses)} ${t.guesses}</span>
+      </div>`;
+  });
+  show('card-decomp');
+
+  // HIBP
+  const HIBP_ICONS = { found:'⚠️', not_found:'✅', skipped:'ℹ️', error:'⚡' };
+  const HIBP_CLS   = { found:'hibp-found', not_found:'hibp-not_found', skipped:'hibp-skipped', error:'hibp-error' };
+  const hibpEl = document.getElementById('hibp-result');
+  hibpEl.className = `hibp-result ${HIBP_CLS[d.hibp_status]||'hibp-skipped'}`;
+  hibpEl.innerHTML = `<span class="hibp-icon">${HIBP_ICONS[d.hibp_status]||'ℹ️'}</span><span>${(t.hibp[d.hibp_status]||t.hibp.skipped)(d.hibp_count)}</span>`;
+  show('card-hibp');
+
+  // Cracking
+  const cl = document.getElementById('crack-list');
+  cl.innerHTML = '';
+  Object.entries(t.crack).forEach(([k, label]) => {
+    cl.innerHTML += `
+      <div class="crack-row">
+        <span class="crack-label">${label}</span>
+        <span class="crack-time">${d.cracking_times[k]}</span>
+      </div>`;
+  });
+  show('card-crack');
+}
+
+// Init
+setLang('es');
+</script>
+</body>
+</html>

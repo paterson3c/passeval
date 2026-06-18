@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "passeval"
+version = "0.1.0"
+description = "Herramienta de evaluación empírica de contraseñas (TFG)"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    { name = "Miguel Jesús Paterson González" },
+]
+license = { text = "MIT" }
+dependencies = [
+    "psycopg2-binary>=2.9",
+    "requests>=2.31",
+    "python-dotenv>=1.0",
+    "fastapi>=0.110",
+    "uvicorn>=0.27",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+    "ruff>=0.1",
+]
+api = [
+    "fastapi>=0.110",
+    "uvicorn>=0.27",
+    "pydantic>=2.6",
+]
+
+[project.scripts]
+passeval = "passeval.cli:main"
+passeval-ingest = "etl.ingest:main"
+passeval-stats = "etl.stats_compute:main"
+
+[tool.setuptools]
+package-dir = { "" = "src", "etl" = "etl" }
+
+[tool.setuptools.packages.find]
+where = ["src", "."]
+include = ["passeval*", "etl*"]
+exclude = ["tests*", "venv*", "data*", "docs*", "sql*", "scripts*", "logs*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+markers = [
+    "network: tests que requieren acceso a internet (HIBP)",
+    "integration: tests de integración con PostgreSQL",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
